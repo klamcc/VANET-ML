@@ -106,7 +106,7 @@ def build_traffic_context(traffic_df: Optional[pd.DataFrame]) -> str:
 def build_system_instruction() -> str:
     return "\n".join([
         "Your name is VANETBot, you are an AI assistant desgined to help manage VANET Network systems",
-        "Your objective is to answer user questions within scope in english or vietnamese in concise and short responses",
+        "Your objective is to answer user questions within scope ONLY in english or vietnamese in concise and short responses, questions outside scope must not be answered",
         "Question scope includes, What VANET is and how it works, what certain metrics or traffic states mean and how they impact traffic and how they are dealt with"
     ])
 
@@ -153,26 +153,32 @@ with st.sidebar:
     if not api_key:
         st.error("API KEY NOT FOUND")
 
-
-    
     if "messages" not in st.session_state:
-        st.session_state.messages = []
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Hello! I am VANETBot. How can I help you manage your VANET network system today?"}
+        ]
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    chat_container = st.container(height=500, border=False)
+
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
     if prompt := st.chat_input("Ask VANETBot a question..."):
-        with st.chat_message("user"):
-            st.markdown(prompt)
-            
-        with st.chat_message("assistant"):
-            with st.spinner():
-                response_text = ask_bot(prompt=prompt, messages=st.session_state.messages, client=client, traffic_df=df)
-                st.markdown(response_text)
-                
         st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        with chat_container:
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            with st.chat_message("assistant"):
+                with st.spinner():
+                    response_text = ask_bot(prompt=prompt, messages=st.session_state.messages[:-1], client=client, traffic_df=df)
+                    st.markdown(response_text)
+                    
         st.session_state.messages.append({"role": "assistant", "content": response_text})
+        st.rerun()
 
 
 st.title("VANET Traffic Dashboard")
@@ -298,7 +304,6 @@ with tab3:
                 clf_delay = st.number_input("Network Delay (avg_comm_delay_ms):", min_value=0.0, value=45.0, key="clf_delay")
                 clf_cbr = st.number_input("Channel Busy Ratio (channel_busy_ratio_pct):", min_value=0.0, max_value=100.0, value=30.0, key="clf_cbr")
                 
-  
                 clf_incident_label = st.selectbox(
                     "Active Incidents (incident_severity):", 
                     options=list(INCIDENT_MAP.keys()), 
@@ -330,4 +335,4 @@ with tab3:
                     st.warning(prediction)
                 case _:
                     st.error(prediction)
-            st.dataframe(pd.DataFrame({"Traffic Class": classifier_model.classes_, "Probability": [f"{p*100:.2f}%" for p in prediction_probs]}), use_container_width=True)
+            st.dataframe(pd.DataFrame({"Traffic Class": classifier_model.classes_, "Probability": [f"{p*100:.2f}%" for p in prediction_probs]}))
